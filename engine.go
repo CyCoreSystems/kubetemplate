@@ -3,12 +3,14 @@ package kubetemplate
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/rand"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/CyCoreSystems/kubetemplate/resource"
 	"github.com/CyCoreSystems/netdiscover/discover"
 	"github.com/ericchiang/k8s"
 	v1 "github.com/ericchiang/k8s/apis/core/v1"
@@ -31,23 +33,120 @@ type Engine struct {
 
 	firstRenderCompleted bool
 
-	watchers map[string]*k8s.Watcher
+	//watchers map[string]*k8s.Watcher
+	watchers []*Watcher
 
-	ARISecret string
+	mu sync.RWMutex
+}
+
+// AddWatched adds a namespace/name/kind tuple to the engine, to be watched
+func (e *Engine) AddWatched(ctx context.Context, kind, namespace, name string, opts ...k8s.Option) error {
+
+	p, ok := resource.GetPrototyper(kind)
+	if !ok {
+		return fmt.Errorf("unhandled resource type %s", kind)
+	}
+	// If the watcher already exists for this namespace+kind, just add our name to the list of watched entities
+	e.mu.RLock()
+	for _, w := range e.watchers {
+		if w.kind == kind && w.namespace == namespace {
+			e.mu.RUnlock()
+			return w.Add(ctx, e.kc, namespace, name)
+		}
+	}
+	e.mu.RUnlock()
+
+	kubeWatcher, err := e.kc.Watch(ctx, namespace, p.Object())
+	if err != nil {
+		return err
+	}
+
+	w := &Watcher{
+		w:          kubeWatcher,
+		kind:       kind,
+		namespace:  namespace,
+		prototyper: p,
+	}
+	if err = w.Add(ctx, e.kc, namespace, name); err != nil {
+		return err
+	}
+
+	e.mu.Lock()
+	e.watchers = append(e.watchers, w)
+	e.mu.Unlock()
+
+	go func() {
+		for {
+			obj := p.Object()
+			if _, err = w.w.Next(obj); err != nil {
+				e.failure(err)
+				return
+			}
+
+			// Only reload if this resource has one of the names we are monitoring
+			for _, r := range w.resources {
+				if r.Name() == obj.GetMetadata().GetName() {
+					e.reload <- nil
+					break
+				}
+			}
+		}
+	}()
+
+	return nil
+}
+
+// Watcher wraps the kubernetes watcher to filter changes to just the names of our interest.
+type Watcher struct {
+	w *k8s.Watcher
+
+	kind string
+
+	namespace string
+
+	prototyper resource.Prototyper
+
+	resources []resource.Changeable
 
 	mu sync.Mutex
+}
+
+// Add adds a resource to the existing watcher
+func (w *Watcher) Add(ctx context.Context, kc *k8s.Client, namespace, name string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	for _, r := range w.resources {
+		if r.Name() == name {
+			return nil
+		}
+	}
+
+	res, err := w.prototyper.Changeable(ctx, kc, namespace, name)
+	if err != nil {
+		return err
+	}
+
+	w.resources = append(w.resources, res)
+	return nil
+}
+
+// Close shuts down the watcher
+func (w *Watcher) Close() error {
+	if w.w != nil {
+		return w.w.Close()
+	}
+	return nil
 }
 
 // NewEngine returns a new rendering engine.  The supplied reloadChan servces
 // as an indicator to reload and as a return channel for errors.  If `nil` is
 // passed down the channel, a reload is requested.  If an error is passed down,
 // the Engine has died and must be restarted.
-func NewEngine(reloadChan chan error, disc discover.Discoverer, ariSecret string) *Engine {
+func NewEngine(reloadChan chan error, disc discover.Discoverer) *Engine {
 	return &Engine{
-		ARISecret: ariSecret,
-		disc:      disc,
-		reload:    reloadChan,
-		watchers:  make(map[string]*k8s.Watcher),
+		disc:   disc,
+		reload: reloadChan,
 	}
 }
 
@@ -111,29 +210,7 @@ func (e *Engine) ConfigMap(name string, namespace string) (c *v1.ConfigMap, err 
 		return
 	}
 
-	// If this is the first run, register a watcher
-	wName := watcherName("configmap", namespace)
-
-	// start one watcher for each kind + namespace
-	if _, ok := e.watchers[wName]; !ok {
-
-		var watched = new(v1.ConfigMap)
-
-		watcher, err := e.kc.Watch(context.Background(), namespace, watched)
-
-		e.watchers[wName] = watcher
-
-		go func() {
-			for {
-				if _, err = watcher.Next(watched); err != nil {
-					e.failure(err)
-					return
-				}
-				e.reload <- nil
-			}
-		}()
-	}
-
+	err = e.AddWatched(context.Background(), "ConfigMap", namespace, name)
 	return
 }
 
@@ -166,31 +243,8 @@ func (e *Engine) Service(name, namespace string) (s *v1.Service, err error) {
 		return
 	}
 
-	// If this is the first run, register a watcher
-	wName := watcherName("service", namespace)
-
-	// start one watcher for each kind + namespace
-	if _, ok := e.watchers[wName]; !ok {
-
-		var watched = new(v1.Service)
-
-		watcher, err := e.kc.Watch(context.Background(), namespace, watched)
-
-		e.watchers[wName] = watcher
-
-		go func() {
-			for {
-				if _, err = watcher.Next(watched); err != nil {
-					e.failure(err)
-					return
-				}
-				e.reload <- nil
-			}
-		}()
-	}
-
+	err = e.AddWatched(context.Background(), "Service", namespace, name)
 	return
-
 }
 
 // Endpoints returns the Endpoints for the given Service
@@ -217,35 +271,7 @@ func (e *Engine) Endpoints(name, namespace string) (ep *v1.Endpoints, err error)
 		return
 	}
 
-	// If this is the first run, register a watcher
-	wName := watcherName("endpoints", namespace)
-
-	// start one watcher for each kind + namespace
-	if _, ok := e.watchers[wName]; !ok {
-
-		var watched = new(v1.Endpoints)
-
-		watcher, err := e.kc.Watch(context.Background(), namespace, watched)
-
-		e.watchers[wName] = watcher
-
-		go func() {
-			for {
-				if _, err = watcher.Next(watched); err != nil {
-					e.failure(err)
-					return
-				}
-
-				// HACK: workaround for super-chatty nats-operator, which updates its annotation every second
-				if watched.GetMetadata().GetName() == "nats-operator" {
-					continue
-				}
-
-				e.reload <- nil
-			}
-		}()
-	}
-
+	err = e.AddWatched(context.Background(), "Endpoints", namespace, name)
 	return
 }
 
