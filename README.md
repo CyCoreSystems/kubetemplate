@@ -12,6 +12,7 @@ configuration files using a number of kubernetes resources as sources.
 Values for the templates may come from a number of sources:
 
   - ConfigMap
+  - Secret
   - Environment Variables
   - Service
   - Endpoints (of a Service)
@@ -20,7 +21,7 @@ Values for the templates may come from a number of sources:
 
 ### ConfigMap
 
-To obtain ConfigMap entries, Asterisk Config will use the Kubernetes API to
+To obtain ConfigMap entries, KubeTemplate will use the Kubernetes API to
 attempt to pull in the ConfigMap and key requested. 
 
 **Format**:  `{{.ConfigMap "<name>" "<namespace>" "<key>"}}` 
@@ -34,6 +35,23 @@ configuration files will be regenerated, and a reload will be performed.
 
 Note that this will likely require an RBAC entry to allow the `ServiceAccount`
 under which the engine is running to access the referenced ConfigMap.
+
+### Secret
+
+To obtain Secret entries, KubeTemplate will use the Kubernetes API to
+attempt to pull in the Secret and key requested. 
+
+**Format**:  `{{.Secret "<name>" "<namespace>" "<key>"}}` 
+
+The provided namespace _may_ be `""` if both the Secret is in the same
+namespace as the Pod _and_ the `POD_NAMESPACE` environment variable is properly
+set.
+
+The Secret will be monitored by the engine, and if it is updated, the
+configuration files will be regenerated, and a reload will be performed.
+
+Note that this will likely require an RBAC entry to allow the `ServiceAccount`
+under which the engine is running to access the referenced Secret.
 
 
 ### Environment Variables

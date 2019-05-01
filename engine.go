@@ -2,6 +2,7 @@ package kubetemplate
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -187,8 +188,8 @@ func (e *Engine) FirstRenderComplete(ok bool) {
 }
 
 // ConfigMap returns a kubernetes ConfigMap
-func (e *Engine) ConfigMap(name string, namespace string) (c *v1.ConfigMap, err error) {
-	c = new(v1.ConfigMap)
+func (e *Engine) ConfigMap(name string, namespace string, key string) (out string, err error) {
+	c := new(v1.ConfigMap)
 
 	if err = e.connectKube(); err != nil {
 		return
@@ -203,7 +204,11 @@ func (e *Engine) ConfigMap(name string, namespace string) (c *v1.ConfigMap, err 
 	defer cancel()
 
 	if err = e.kc.Get(ctx, namespace, name, c); err != nil {
-		return
+		v, ok := c.GetData()[key]
+		if !ok {
+			return "", fmt.Errorf("key %s not found in ConfigMap %s[%s]", key, name, namespace)
+		}
+		return v, nil
 	}
 
 	if e.firstRenderCompleted {
@@ -211,6 +216,44 @@ func (e *Engine) ConfigMap(name string, namespace string) (c *v1.ConfigMap, err 
 	}
 
 	err = e.AddWatched(context.Background(), "ConfigMap", namespace, name)
+	return
+}
+
+// Secret returns a kubernetes Secret
+func (e *Engine) Secret(name string, namespace string, key string) (out string, err error) {
+	s := new(v1.Secret)
+
+	if err = e.connectKube(); err != nil {
+		return
+	}
+
+	namespace, err = getNamespace(namespace)
+	if err != nil {
+		return
+	}
+
+	ctx, cancel := boundedContext()
+	defer cancel()
+
+	if err = e.kc.Get(ctx, namespace, name, s); err != nil {
+		v, ok := s.GetData()[key]
+		if !ok {
+			return "", fmt.Errorf("key %s not found in Secret %s[%s]", key, name, namespace)
+		}
+
+		b, err := base64.StdEncoding.DecodeString(string(v))
+		if err != nil {
+			return "", fmt.Errorf("failed to decode secret value %s: %v", key, err)
+		}
+
+		return string(b), nil
+	}
+
+	if e.firstRenderCompleted {
+		return
+	}
+
+	err = e.AddWatched(context.Background(), "Secret", namespace, name)
 	return
 }
 
