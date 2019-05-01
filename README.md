@@ -36,6 +36,13 @@ configuration files will be regenerated, and a reload will be performed.
 Note that this will likely require an RBAC entry to allow the `ServiceAccount`
 under which the engine is running to access the referenced ConfigMap.
 
+**NOTE**: it is generally easier to use the standard kubernetes Pod methods to
+translate ConfigMap and Secret values to environment variables.  However, doing
+so does not currently result in changes to those referent ConfigMaps and Secrets
+being propagated to running applications.  Therefore, the choice between using
+these dynamic references and the native kubernetes environment variable bindings
+is left to the user.
+
 ### Secret
 
 To obtain Secret entries, KubeTemplate will use the Kubernetes API to
@@ -52,6 +59,9 @@ configuration files will be regenerated, and a reload will be performed.
 
 Note that this will likely require an RBAC entry to allow the `ServiceAccount`
 under which the engine is running to access the referenced Secret.
+
+See note under ConfigMaps about using kubernetes native environment variable
+bindings.
 
 
 ### Environment Variables
