@@ -80,6 +80,16 @@ namespace:
 Note that the IP address of a service within the same namespace can be obtained
 more simply by environment variable, as described above.
 
+### ServiceIP
+
+Since the most common reason to probe a service is to retrieve its ClusterIP, we
+have also included a macro which does just that.
+
+**Format**: `{{.ServiceIP "<name>" "<namespace>]"}}`
+
+This works as Service, but instead of returning a structure, it just returns the
+ClusterIP of the Service, as a string.
+
 
 ### Endpoints
 

@@ -290,6 +290,16 @@ func (e *Engine) Service(name, namespace string) (s *v1.Service, err error) {
 	return
 }
 
+// ServiceIP returns a kubernetes Service's ClusterIP
+func (e *Engine) ServiceIP(name, namespace string) (string, error) {
+	s, err := e.Service(name, namespace)
+	if err != nil {
+		return "", err
+	}
+
+	return s.GetSpec().GetClusterIP(), nil
+}
+
 // Endpoints returns the Endpoints for the given Service
 func (e *Engine) Endpoints(name, namespace string) (ep *v1.Endpoints, err error) {
 	ep = new(v1.Endpoints)
