@@ -11,10 +11,10 @@ configuration files using a number of kubernetes resources as sources.
 
 Values for the templates may come from a number of sources:
 
-  - [ConfigMap](#configmap-and-secret)
-  - [Secret](#configmap-and-secret)
+  - [ConfigMap](#configmap-and-secret) / [Secret](#configmap-and-secret)
   - [Environment Variables](#environment-variables)
   - [Service](#service)
+  - [ServiceIP](#serviceip)
   - [Endpoints](#endpoints) (of a Service)
   - [EndpointIPs](#endpoint-ips) (of a Service)
   - [Network](#network-data)
