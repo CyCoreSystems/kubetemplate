@@ -11,26 +11,28 @@ configuration files using a number of kubernetes resources as sources.
 
 Values for the templates may come from a number of sources:
 
-  - ConfigMap
-  - Secret
-  - Environment Variables
-  - Service
-  - Endpoints (of a Service)
-  - EndpointIPs (of a Service)
-  - Network
+  - [ConfigMap](#configmap-and-secret)
+  - [Secret](#configmap-and-secret)
+  - [Environment Variables](#environment-variables)
+  - [Service](#service)
+  - [Endpoints](#endpoints) (of a Service)
+  - [EndpointIPs](#endpoint-ips) (of a Service)
+  - [Network](#network-data)
 
-### ConfigMap
+### ConfigMap and Secret
 
-To obtain ConfigMap entries, KubeTemplate will use the Kubernetes API to
-attempt to pull in the ConfigMap and key requested. 
+To obtain ConfigMap or Secret entries, KubeTemplate will use the Kubernetes API to
+attempt to pull in the ConfigMap/Secret and key requested. 
 
 **Format**:  `{{.ConfigMap "<name>" "<namespace>" "<key>"}}` 
 
-The provided namespace _may_ be `""` if both the ConfigMap is in the same
+**Format**:  `{{.Secret "<name>" "<namespace>" "<key>"}}` 
+
+The provided namespace _may_ be `""` if both the ConfigMap/Secret is in the same
 namespace as the Pod _and_ the `POD_NAMESPACE` environment variable is properly
 set.
 
-The ConfigMap will be monitored by the engine, and if it is updated, the
+The ConfigMap/Secret will be monitored by the engine, and if it is updated, the
 configuration files will be regenerated, and a reload will be performed.
 
 Note that this will likely require an RBAC entry to allow the `ServiceAccount`
@@ -42,26 +44,6 @@ so does not currently result in changes to those referent ConfigMaps and Secrets
 being propagated to running applications.  Therefore, the choice between using
 these dynamic references and the native kubernetes environment variable bindings
 is left to the user.
-
-### Secret
-
-To obtain Secret entries, KubeTemplate will use the Kubernetes API to
-attempt to pull in the Secret and key requested. 
-
-**Format**:  `{{.Secret "<name>" "<namespace>" "<key>"}}` 
-
-The provided namespace _may_ be `""` if both the Secret is in the same
-namespace as the Pod _and_ the `POD_NAMESPACE` environment variable is properly
-set.
-
-The Secret will be monitored by the engine, and if it is updated, the
-configuration files will be regenerated, and a reload will be performed.
-
-Note that this will likely require an RBAC entry to allow the `ServiceAccount`
-under which the engine is running to access the referenced Secret.
-
-See note under ConfigMaps about using kubernetes native environment variable
-bindings.
 
 
 ### Environment Variables
