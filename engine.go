@@ -204,12 +204,14 @@ func (e *Engine) ConfigMap(name string, namespace string, key string) (out strin
 	defer cancel()
 
 	if err = e.kc.Get(ctx, namespace, name, c); err != nil {
-		v, ok := c.GetData()[key]
-		if !ok {
-			return "", fmt.Errorf("key %s not found in ConfigMap %s[%s]", key, name, namespace)
-		}
-		return v, nil
+		return
 	}
+
+	v, ok := c.GetData()[key]
+	if !ok {
+		return "", fmt.Errorf("key %s not found in ConfigMap %s[%s]", key, name, namespace)
+	}
+	out = v
 
 	if e.firstRenderCompleted {
 		return
@@ -236,18 +238,19 @@ func (e *Engine) Secret(name string, namespace string, key string) (out string, 
 	defer cancel()
 
 	if err = e.kc.Get(ctx, namespace, name, s); err != nil {
-		v, ok := s.GetData()[key]
-		if !ok {
-			return "", fmt.Errorf("key %s not found in Secret %s[%s]", key, name, namespace)
-		}
-
-		b, err := base64.StdEncoding.DecodeString(string(v))
-		if err != nil {
-			return "", fmt.Errorf("failed to decode secret value %s: %v", key, err)
-		}
-
-		return string(b), nil
+		return
 	}
+
+	v, ok := s.GetData()[key]
+	if !ok {
+		return "", fmt.Errorf("key %s not found in Secret %s[%s]", key, name, namespace)
+	}
+
+	b, err := base64.StdEncoding.DecodeString(string(v))
+	if err != nil {
+		return "", fmt.Errorf("failed to decode secret value %s: %v", key, err)
+	}
+	out = string(b)
 
 	if e.firstRenderCompleted {
 		return
