@@ -260,6 +260,40 @@ func (e *Engine) Secret(name string, namespace string, key string) (out string, 
 	return
 }
 
+// SecretBinary returns a kubernetes Secret
+func (e *Engine) SecretBinary(name string, namespace string, key string) (out []byte, err error) {
+	s := new(v1.Secret)
+
+	if err = e.connectKube(); err != nil {
+		return
+	}
+
+	namespace, err = getNamespace(namespace)
+	if err != nil {
+		return
+	}
+
+	ctx, cancel := boundedContext()
+	defer cancel()
+
+	if err = e.kc.Get(ctx, namespace, name, s); err != nil {
+		return
+	}
+
+	v, ok := s.GetData()[key]
+	if !ok {
+		return nil, fmt.Errorf("key %s not found in Secret %s[%s]", key, name, namespace)
+	}
+	out = v
+
+	if e.firstRenderCompleted {
+		return
+	}
+
+	err = e.AddWatched(context.Background(), "Secret", namespace, name)
+	return
+}
+
 // Env returns the value of an environment variable
 func (e *Engine) Env(name string) string {
 	return os.Getenv(name)
