@@ -17,8 +17,9 @@ import (
 var ErrNoNamespace = errors.New("namespace not monitored (did you call Learn()?)")
 
 type DataProvider struct {
-	learning bool
-	e        *Engine
+	defaultNamespace string
+	learning         bool
+	e                *Engine
 }
 
 func (p *DataProvider) getOrCreateNamespace(namespace string) *Namespace {
@@ -30,8 +31,17 @@ func (p *DataProvider) getOrCreateNamespace(namespace string) *Namespace {
 	return n
 }
 
+func (p *DataProvider) namespace(in string) string {
+	if in == "" {
+		return p.defaultNamespace
+	}
+
+	return in
+}
+
 // ConfigMap returns a kubernetes ConfigMap value
 func (p *DataProvider) ConfigMap(name, namespace, key string) (string, error) {
+	namespace = p.namespace(namespace)
 
 	if p.learning {
 		n := p.getOrCreateNamespace(namespace)
@@ -59,6 +69,8 @@ func (p *DataProvider) ConfigMap(name, namespace, key string) (string, error) {
 
 // Secret returns a kubernetes Secret value
 func (p *DataProvider) Secret(name, namespace, key string) (out string, err error) {
+	namespace = p.namespace(namespace)
+
 	b64Data, err := p.SecretBinary(name, namespace, key)
 	if err != nil {
 		return "", err
@@ -76,6 +88,8 @@ func (p *DataProvider) Secret(name, namespace, key string) (out string, err erro
 
 // SecretBinary returns a kubernetes Secret binary value
 func (p *DataProvider) SecretBinary(name, namespace, key string) (out []byte, err error) {
+	namespace = p.namespace(namespace)
+
 	if p.learning {
 		n := p.getOrCreateNamespace(namespace)
 
@@ -107,6 +121,8 @@ func (p *DataProvider) Env(name string) string {
 
 // Service returns a kubernetes Service
 func (p *DataProvider) Service(name, namespace string) (s *v1.Service, err error) {
+	namespace = p.namespace(namespace)
+
 	if p.learning {
 		n := p.getOrCreateNamespace(namespace)
 
@@ -123,6 +139,8 @@ func (p *DataProvider) Service(name, namespace string) (s *v1.Service, err error
 
 // ServiceIP returns a kubernetes Service's ClusterIP
 func (p *DataProvider) ServiceIP(name, namespace string) (string, error) {
+	namespace = p.namespace(namespace)
+
 	service, err := p.Service(name, namespace)
 	if err != nil {
 		return "", nil
@@ -133,6 +151,8 @@ func (p *DataProvider) ServiceIP(name, namespace string) (string, error) {
 
 // Endpoints returns the Endpoints for the given Service
 func (p *DataProvider) Endpoints(name, namespace string) (ep *v1.Endpoints, err error) {
+	namespace = p.namespace(namespace)
+
 	if p.learning {
 		n := p.getOrCreateNamespace(namespace)
 
@@ -149,6 +169,8 @@ func (p *DataProvider) Endpoints(name, namespace string) (ep *v1.Endpoints, err 
 
 // EndpointIPs returns the set of IP addresses for the given Service's endpoints.
 func (p *DataProvider) EndpointIPs(name, namespace string) (out []string, err error) {
+	namespace = p.namespace(namespace)
+
 	eps, err := p.Endpoints(name, namespace)
 	if err != nil {
 		return nil, err
