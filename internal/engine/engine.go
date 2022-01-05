@@ -83,7 +83,7 @@ func (e *Engine) render(out io.Writer, in io.Reader, p *DataProvider) error {
 }
 
 // Learn processes the given input as a template, recording any discovered resources to the resource monitors.
-func (e *Engine) Learn(in io.Reader) error {
+func (e *Engine) Learn(in io.Reader, defaultNamespace string) error {
 	e.learnMutex.Lock()
 	defer e.learnMutex.Unlock()
 
@@ -93,18 +93,20 @@ func (e *Engine) Learn(in io.Reader) error {
 	}()
 
 	return e.render(io.Discard, in, &DataProvider{
+		defaultNamespace: defaultNamespace,
 		learning: true,
 		e:        e,
 	})
 }
 
 // Render processes the given input as a template, writing it to the provided output
-func (e *Engine) Render(out io.Writer, in io.Reader) error {
+func (e *Engine) Render(out io.Writer, in io.Reader, defaultNamespace string) error {
 
 	e.learnMutex.RLock()
 	defer e.learnMutex.RUnlock()
 
 	return e.render(out, in, &DataProvider{
+		defaultNamespace: defaultNamespace,
 		learning: false,
 		e:        e,
 	})
