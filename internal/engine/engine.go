@@ -5,20 +5,12 @@ import (
 	"html/template"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/CyCoreSystems/netdiscover/discover"
 	"k8s.io/client-go/kubernetes"
 )
-
-// KubeAPITimeout is the amount of time to wait for the kubernetes API to respond before failing
-var KubeAPITimeout = 10 * time.Second
-
-func init() {
-	rand.Seed(time.Now().Unix())
-}
 
 type Engine struct {
 	namespaces map[string]*Namespace
