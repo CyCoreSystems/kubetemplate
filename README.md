@@ -18,6 +18,11 @@ is added or changes, and then call `Render()` any number of times.
 Note that `Learn()` takes out a lock on the entire engine, so you should not
 attempt to run it concurrently.
 
+The network portion of this tool relies on a netdiscover instance.
+See [NetDiscover](https://github.com/CyCoreSystems/netdiscover) for more
+information.
+At a minimum, just create one with `discover.NewDiscoverer()`.
+
 ## Templates
 
 Values for the templates may come from a number of sources:
