@@ -7,6 +7,17 @@ Kubernetes.
 It provides a common Go-based templating engine to construct application
 configuration files using a number of kubernetes resources as sources.
 
+## Usage
+
+A templating engine can be used on any number of templates, but before calling
+`Render()` on a template, you should run that template through a `Learn()`
+cycle.
+
+Thus, the usual process is to run each template through a `Learn()` whenever it
+is added or changes, and then call `Render()` any number of times.
+Note that `Learn()` takes out a lock on the entire engine, so you should not
+attempt to run it concurrently.
+
 ## Templates
 
 Values for the templates may come from a number of sources:
